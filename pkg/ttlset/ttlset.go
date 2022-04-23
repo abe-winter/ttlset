@@ -38,6 +38,7 @@ func timeComparator(a, b interface{}) int {
 func New() TtlSet {
   return TtlSet{
     Ttl: defaultTtl,
+    // note: TtlVal is a value rather than a pointer here because GC is faster per https://www.komu.engineer/blogs/go-gc-maps
     Byval: make(map[string]TtlVal),
     Bytime: btree.NewWith(defaultOrder, timeComparator),
   }
@@ -134,22 +135,24 @@ func (ts *TtlSet) Add(key string, now time.Time) (bool, time.Time) {
   return found, oldTime
 }
 
-// remove key. return (existed, prevTime)
-func (ts *TtlSet) Remove(key string, now time.Time) (bool, time.Time) {
+// remove key. return (removed, prevTime)
+func (ts *TtlSet) Remove(key string, cullMode bool, cullCutoff time.Time) (bool, time.Time) {
   mutex := getMutex(key, keyMutexes)
   mutex.Lock()
   defer mutex.Unlock()
 
   // note: could do read-then-write lock, but:
   // 1) there's no read-only case in this function
-  // 2) Remove won't be called often bc ttl
-  // 3) not sure how much concurrency the read-only time opens up
+  // 2) not sure how much concurrency the read-only time opens up
   canceler := cancelableLock(ts.valLock)
   defer canceler.Unlock()
 
   if elem, ok := ts.Byval[key]; ok {
     // exists case
     oldTime := elem.t
+    if cullMode && oldTime.After(cullCutoff) {
+      return false, oldTime
+    }
     delete(ts.Byval, key)
     canceler.Unlock()
     ts.timeLock.Lock()
@@ -169,8 +172,21 @@ func (ts *TtlSet) Len() int {
 }
 
 // remove keys from TtlSet that are older than ttl
-func (ts *TtlSet) Cull(now time.Time) {
-  // cutoff := now.Add(-ts.Ttl)
-  // candidates =
-  panic("notimp")
+func (ts *TtlSet) Cull(now time.Time) int {
+  cutoff := now.Add(-ts.Ttl)
+  candidates := make([][]string, 0)
+  iter := ts.Bytime.Iterator()
+  for ; iter.Next(); {
+    if iter.Key().(time.Time).After(cutoff) { break }
+    candidates = append(candidates, iter.Value().([]string))
+  }
+  nculled := 0
+  for _, slice := range candidates {
+    for _, key := range slice {
+      // todo: lock around large chunks instead of inside Remove
+      removed, _ := ts.Remove(key, true, cutoff)
+      if removed { nculled += 1 }
+    }
+  }
+  return nculled
 }

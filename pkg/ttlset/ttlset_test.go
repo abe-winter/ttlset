@@ -1,6 +1,7 @@
 package ttlset
 
 import "testing"
+import "strconv"
 import "time"
 
 func TestTimeComparator (t *testing.T) {
@@ -40,11 +41,11 @@ func TestAddRemoveLen (t *testing.T) {
   ts := New()
   now := time.Now()
   if ts.Len() != 0 { t.Fatal("wrong len") }
-  if existed, _ := ts.Remove("yo", now); existed { t.Fatal("expected !existed") }
+  if existed, _ := ts.Remove("yo", false, time.Time{}); existed { t.Fatal("expected !existed") }
   if ts.Len() != 0 { t.Fatal("wrong len") }
   if existed, _ := ts.Add("yo", now); existed { t.Fatal("expected !existed") }
   if ts.Len() != 1 { t.Fatal("wrong len") }
-  if existed, _ := ts.Remove("yo", now); !existed { t.Fatal("expected existed") }
+  if existed, _ := ts.Remove("yo", false, time.Time{}); !existed { t.Fatal("expected existed") }
   if ts.Len() != 0 { t.Fatal("wrong len") }
 }
 
@@ -63,5 +64,15 @@ func TestAddExists (t *testing.T) {
 }
 
 func TestCull (t *testing.T) {
-  // Cull(now time.Time)
+  ts := New()
+  base := time.Time{}
+  for i:=0; i<100; i++ {
+    ts.Add(strconv.Itoa(i), base.Add(time.Duration(i) * time.Second))
+  }
+  if 0 != ts.Cull(base.Add(59 * time.Second)) { t.Fatal("expected 0") }
+  if ts.Len() != 100 { t.Fatal("len != 100") }
+  if 10 != ts.Cull(base.Add(69 * time.Second)) { t.Fatal("expected 10") }
+  if ts.Len() != 90 { t.Fatal("len != 90") }
+  if 10 != ts.Cull(base.Add(79 * time.Second)) { t.Fatal("expected 10") }
+  if ts.Len() != 80 { t.Fatal("len != 80") }
 }
