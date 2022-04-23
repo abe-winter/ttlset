@@ -108,6 +108,21 @@ func (ts *TtlSet) Add(key string, now time.Time) (bool, time.Time) {
   }
 }
 
+// remove key. return (existed, prevTime)
+func (ts *TtlSet) Remove(key string, now time.Time) (bool, time.Time) {
+  mutex := getMutex(key, keyMutexes)
+  mutex.Lock()
+  defer mutex.Unlock()
+  if elem, ok := ts.Byval[key]; ok {
+    // exists case
+    oldTime := elem.t
+    ts.rmTreeKey(key, oldTime)
+    delete(ts.Byval, key)
+    return true, oldTime
+  }
+  return false, time.Time{}
+}
+
 // length of TtlSet aka # of keys
 func (ts *TtlSet) Len() int {
   return len(ts.Byval)
