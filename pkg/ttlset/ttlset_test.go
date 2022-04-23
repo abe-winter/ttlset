@@ -49,8 +49,17 @@ func TestAddRemoveLen (t *testing.T) {
 }
 
 func TestAddExists (t *testing.T) {
-  t.Skip()
-  // todo: test that second add overwrites Byval's time
+  ts := New()
+  base := time.Time{}
+  existed, prevtime := ts.Add("yo", base)
+  if existed { t.Fatal("expected !existed") }
+
+  future := base.Add(time.Minute)
+  existed, prevtime = ts.Add("yo", future)
+  if !existed { t.Fatal("expected existed") }
+  if !prevtime.Equal(base) { t.Fatal("wrong prevtime") }
+
+  if !ts.Byval["yo"].t.Equal(future) { t.Fatalf("wrong time in TtlVal, wanted %s, got %s", future, ts.Byval["yo"].t) }
 }
 
 func TestCull (t *testing.T) {

@@ -50,23 +50,28 @@ func getMutex(key string, mutexes []sync.Mutex) *sync.Mutex {
   return &mutexes[adler32.Checksum([]byte(key)) % uint32(len(mutexes))]
 }
 
-// todo: getentry func
-
-// remove key from slice at Bytime[oldTime] (with locking)
-func (ts *TtlSet) rmTreeKey(key string, oldTime time.Time) {
-  ts.timeLock.Lock()
-  defer ts.timeLock.Unlock()
-  if node := ts.Bytime.GetNode(oldTime); node != nil {
+// btree helper, gets entry from within node
+func GetEntry(tree *btree.Tree, key time.Time) *btree.Entry {
+  // todo: 1.18 generics
+  if node := tree.GetNode(key); node != nil {
     for _, entry := range node.Entries {
-      if entry.Key.(time.Time).Equal(oldTime) {
-        removed := sRemove(key, entry.Value.([]string))
-        if len(removed) == 0 {
-          ts.Bytime.Remove(oldTime)
-        } else {
-          entry.Value = removed
-        }
-        break
+      if entry.Key.(time.Time).Equal(key) {
+        return entry
       }
+    }
+  }
+  return nil
+}
+
+// remove key from slice at Bytime[oldTime]
+// MUST hold timeLock outside or you risk race
+func (ts *TtlSet) rmTreeKey(key string, oldTime time.Time) {
+  if entry := GetEntry(ts.Bytime, oldTime); entry != nil {
+    removed := sRemove(key, entry.Value.([]string))
+    if len(removed) == 0 {
+      ts.Bytime.Remove(oldTime)
+    } else {
+      entry.Value = removed
     }
   } else {
     // this shouldn't happen, but also make it an http error so the client knows what's up
@@ -74,25 +79,25 @@ func (ts *TtlSet) rmTreeKey(key string, oldTime time.Time) {
   }
 }
 
-// add key to slice at Bytime[now] (with locking)
+// add key to slice at Bytime[now]
+// MUST hold timeLock outside or you risk race
 func (ts *TtlSet) addTreeKey(key string, now time.Time) {
-  ts.timeLock.Lock()
-  defer ts.timeLock.Unlock()
-  // todo: use getentry
-  if slice, found := ts.Bytime.Get(now); found {
-    ts.Bytime.Put(now, append(slice.([]string), key))
+  if entry := GetEntry(ts.Bytime, now); entry != nil {
+    entry.Value = append(entry.Value.([]string), key)
   } else {
     ts.Bytime.Put(now, []string{key})
   }
 }
 
+
 // safely RUnlock a RWMutex ugh why is this necessary
 type CancelableLocker struct {
   Locked bool
-  locker sync.Locker
+  locker sync.RWMutex // todo 1.18 make this generic ugh
 }
 
-func cancelableLock(locker sync.Locker) CancelableLocker {
+// factory for CancelableLocker
+func cancelableLock(locker sync.RWMutex) CancelableLocker {
   locker.Lock()
   return CancelableLocker{Locked: true, locker: locker}
 }
@@ -109,24 +114,24 @@ func (ts *TtlSet) Add(key string, now time.Time) (bool, time.Time) {
   mutex := getMutex(key, keyMutexes)
   mutex.Lock()
   defer mutex.Unlock()
-  canceler := cancelableLock(ts.valLock.RLocker())
-  defer canceler.Unlock()
-  if elem, ok := ts.Byval[key]; ok {
-    // exists case
-    oldTime := elem.t
-    if !oldTime.Equal(now) {
-      ts.rmTreeKey(key, oldTime)
-      ts.addTreeKey(key, now)
-      elem.t = now
-    }
-    return true, oldTime
+  oldTime := time.Time{}
+
+  elem, found := func () (TtlVal, bool) {
+    ts.valLock.Lock()
+    defer ts.valLock.Unlock()
+    elem, found := ts.Byval[key]
+    ts.Byval[key] = TtlVal{t: now}
+    return elem, found
+  }()
+
+  ts.timeLock.Lock()
+  defer ts.timeLock.Unlock()
+  if found {
+    oldTime = elem.t
+    ts.rmTreeKey(key, oldTime)
   }
-  canceler.Unlock()
-  ts.valLock.Lock()
-  defer ts.valLock.Unlock()
-  ts.Byval[key] = TtlVal{t: now}
   ts.addTreeKey(key, now)
-  return false, time.Time{}
+  return found, oldTime
 }
 
 // remove key. return (existed, prevTime)
@@ -139,14 +144,17 @@ func (ts *TtlSet) Remove(key string, now time.Time) (bool, time.Time) {
   // 1) there's no read-only case in this function
   // 2) Remove won't be called often bc ttl
   // 3) not sure how much concurrency the read-only time opens up
-  ts.valLock.Lock()
-  defer ts.valLock.Unlock()
+  canceler := cancelableLock(ts.valLock)
+  defer canceler.Unlock()
 
   if elem, ok := ts.Byval[key]; ok {
     // exists case
     oldTime := elem.t
-    ts.rmTreeKey(key, oldTime)
     delete(ts.Byval, key)
+    canceler.Unlock()
+    ts.timeLock.Lock()
+    defer ts.timeLock.Unlock()
+    ts.rmTreeKey(key, oldTime)
     return true, oldTime
   }
   return false, time.Time{}
