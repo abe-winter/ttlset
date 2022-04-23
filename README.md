@@ -48,3 +48,5 @@ I feel uncomfortable with the complexity here, and would like some kind of decla
 simple summary is maybe:
 - valLock + timeLock each protect access to a datastructure
 - keyMutexes protects the two-phase commit i.e. a specific key that exists in both datastructures
+
+Inability to time out locks and backpressure clients is a problem.

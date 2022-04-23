@@ -35,8 +35,8 @@ func timeComparator(a, b interface{}) int {
   }
 }
 
-func New() TtlSet {
-  return TtlSet{
+func New() *TtlSet {
+  return &TtlSet{
     Ttl: defaultTtl,
     // note: TtlVal is a value rather than a pointer here because GC is faster per https://www.komu.engineer/blogs/go-gc-maps
     Byval: make(map[string]TtlVal),
@@ -165,7 +165,8 @@ func (ts *TtlSet) Remove(key string, cullMode bool, cullCutoff time.Time) (bool,
 
 // length of TtlSet aka # of keys
 func (ts *TtlSet) Len() int {
-  // todo: is the read lock necessary here? read some code
+  // todo: is the read lock necessary here or is len(map) safe?
+  // if not, don't need an RWMutex
   ts.valLock.RLock()
   defer ts.valLock.RUnlock()
   return len(ts.Byval)

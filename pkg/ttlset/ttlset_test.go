@@ -28,11 +28,11 @@ func TestTreeKeys (t *testing.T) {
   ts := New()
   now := time.Now()
   ts.addTreeKey("a", now)
-  expectLen(&ts, t, now, 1)
+  expectLen(ts, t, now, 1)
   ts.addTreeKey("b", now)
-  expectLen(&ts, t, now, 2)
+  expectLen(ts, t, now, 2)
   ts.rmTreeKey("b", now)
-  expectLen(&ts, t, now, 1)
+  expectLen(ts, t, now, 1)
   ts.rmTreeKey("a", now)
   if _, found := ts.Bytime.Get(now); found { t.Fatal("expected not found") }
 }
