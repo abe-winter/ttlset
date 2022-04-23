@@ -3,7 +3,7 @@ package ttlset
 
 // index of item in slice or -1
 func sIndex(item string, slice []string) int {
-  for i, v := range(slice) {
+  for i, v := range slice {
     if v == item {
       return i
     }

@@ -5,19 +5,11 @@ import "sync"
 import "time"
 import "github.com/emirpasic/gods/trees/btree"
 
-var defaultTtl time.Duration
+var defaultTtl time.Duration = time.Minute // todo: from config
 var defaultOrder int = 3 // todo: from config
 // for locking without being single-threaded
 var keyMutexes []sync.Mutex = make([]sync.Mutex, 50)
 var treeMutexes []sync.Mutex = make([]sync.Mutex, 50)
-
-func init() {
-  var err error
-  // todo: from config
-  if defaultTtl, err = time.ParseDuration("1m"); err != nil {
-    panic(err)
-  }
-}
 
 // stores details about each key in the set
 type TtlVal struct {
@@ -130,5 +122,6 @@ func (ts *TtlSet) Len() int {
 
 // remove keys from TtlSet that are older than ttl
 func (ts *TtlSet) Cull(now time.Time) {
+  // cutoff := ts.ttl
   panic("notimp")
 }
