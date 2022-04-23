@@ -12,7 +12,6 @@ func TestTimeComparator (t *testing.T) {
 func TestGetMutex (t *testing.T) {
   if getMutex("one", keyMutexes) == nil { t.Fatal("nil mutex") }
   if getMutex("one", keyMutexes) == getMutex("two", keyMutexes) { t.Fatal("either surprising hash collision or this isn't working") }
-  if getMutex("two", treeMutexes) == nil { t.Fatal("nil mutex") }
 }
 
 // helper to check length of the Bytime value slice
@@ -47,6 +46,11 @@ func TestAddRemoveLen (t *testing.T) {
   if ts.Len() != 1 { t.Fatal("wrong len") }
   if existed, _ := ts.Remove("yo", now); !existed { t.Fatal("expected existed") }
   if ts.Len() != 0 { t.Fatal("wrong len") }
+}
+
+func TestAddExists (t *testing.T) {
+  t.Skip()
+  // todo: test that second add overwrites Byval's time
 }
 
 func TestCull (t *testing.T) {

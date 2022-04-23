@@ -7,9 +7,7 @@ import "github.com/emirpasic/gods/trees/btree"
 
 var defaultTtl time.Duration = time.Minute // todo: from config
 var defaultOrder int = 3 // todo: from config
-// for locking without being single-threaded
 var keyMutexes []sync.Mutex = make([]sync.Mutex, 50)
-var treeMutexes []sync.Mutex = make([]sync.Mutex, 50)
 
 // stores details about each key in the set
 type TtlVal struct {
@@ -20,6 +18,8 @@ type TtlSet struct {
   Ttl time.Duration
   Byval map[string]TtlVal
   Bytime *btree.Tree
+  valLock sync.RWMutex
+  timeLock sync.Mutex
 }
 
 // helper for btree
@@ -50,33 +50,57 @@ func getMutex(key string, mutexes []sync.Mutex) *sync.Mutex {
   return &mutexes[adler32.Checksum([]byte(key)) % uint32(len(mutexes))]
 }
 
+// todo: getentry func
+
 // remove key from slice at Bytime[oldTime] (with locking)
 func (ts *TtlSet) rmTreeKey(key string, oldTime time.Time) {
-  mutex := getMutex(oldTime.String(), treeMutexes)
-  mutex.Lock()
-  defer mutex.Unlock()
-  if slice, found := ts.Bytime.Get(oldTime); found {
-    removed := sRemove(key, slice.([]string))
-    if len(removed) == 0 {
-      ts.Bytime.Remove(oldTime)
-    } else {
-      ts.Bytime.Put(oldTime, removed)
+  ts.timeLock.Lock()
+  defer ts.timeLock.Unlock()
+  if node := ts.Bytime.GetNode(oldTime); node != nil {
+    for _, entry := range node.Entries {
+      if entry.Key.(time.Time).Equal(oldTime) {
+        removed := sRemove(key, entry.Value.([]string))
+        if len(removed) == 0 {
+          ts.Bytime.Remove(oldTime)
+        } else {
+          entry.Value = removed
+        }
+        break
+      }
     }
   } else {
-    // this shouldn't happen
+    // this shouldn't happen, but also make it an http error so the client knows what's up
     panic("todo: recover from not found")
   }
 }
 
 // add key to slice at Bytime[now] (with locking)
 func (ts *TtlSet) addTreeKey(key string, now time.Time) {
-  mutex := getMutex(now.String(), treeMutexes)
-  mutex.Lock()
-  defer mutex.Unlock()
+  ts.timeLock.Lock()
+  defer ts.timeLock.Unlock()
+  // todo: use getentry
   if slice, found := ts.Bytime.Get(now); found {
     ts.Bytime.Put(now, append(slice.([]string), key))
   } else {
     ts.Bytime.Put(now, []string{key})
+  }
+}
+
+// safely RUnlock a RWMutex ugh why is this necessary
+type CancelableLocker struct {
+  Locked bool
+  locker sync.Locker
+}
+
+func cancelableLock(locker sync.Locker) CancelableLocker {
+  locker.Lock()
+  return CancelableLocker{Locked: true, locker: locker}
+}
+
+func (cl *CancelableLocker) Unlock() {
+  if cl.Locked {
+    cl.locker.Unlock()
+    cl.Locked = false
   }
 }
 
@@ -85,19 +109,24 @@ func (ts *TtlSet) Add(key string, now time.Time) (bool, time.Time) {
   mutex := getMutex(key, keyMutexes)
   mutex.Lock()
   defer mutex.Unlock()
+  canceler := cancelableLock(ts.valLock.RLocker())
+  defer canceler.Unlock()
   if elem, ok := ts.Byval[key]; ok {
     // exists case
     oldTime := elem.t
     if !oldTime.Equal(now) {
       ts.rmTreeKey(key, oldTime)
       ts.addTreeKey(key, now)
+      elem.t = now
     }
     return true, oldTime
-  } else {
-    ts.Byval[key] = TtlVal{t: now}
-    ts.addTreeKey(key, now)
-    return false, time.Time{}
   }
+  canceler.Unlock()
+  ts.valLock.Lock()
+  defer ts.valLock.Unlock()
+  ts.Byval[key] = TtlVal{t: now}
+  ts.addTreeKey(key, now)
+  return false, time.Time{}
 }
 
 // remove key. return (existed, prevTime)
@@ -105,6 +134,14 @@ func (ts *TtlSet) Remove(key string, now time.Time) (bool, time.Time) {
   mutex := getMutex(key, keyMutexes)
   mutex.Lock()
   defer mutex.Unlock()
+
+  // note: could do read-then-write lock, but:
+  // 1) there's no read-only case in this function
+  // 2) Remove won't be called often bc ttl
+  // 3) not sure how much concurrency the read-only time opens up
+  ts.valLock.Lock()
+  defer ts.valLock.Unlock()
+
   if elem, ok := ts.Byval[key]; ok {
     // exists case
     oldTime := elem.t
@@ -117,11 +154,15 @@ func (ts *TtlSet) Remove(key string, now time.Time) (bool, time.Time) {
 
 // length of TtlSet aka # of keys
 func (ts *TtlSet) Len() int {
+  // todo: is the read lock necessary here? read some code
+  ts.valLock.RLock()
+  defer ts.valLock.RUnlock()
   return len(ts.Byval)
 }
 
 // remove keys from TtlSet that are older than ttl
 func (ts *TtlSet) Cull(now time.Time) {
-  // cutoff := ts.ttl
+  // cutoff := now.Add(-ts.Ttl)
+  // candidates =
   panic("notimp")
 }
