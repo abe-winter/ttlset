@@ -4,7 +4,7 @@ Is a stateful REST server that exposes a set datatype with per-key TTL. It's des
 
 ## status
 
-I'm the only one using this. would be very surprised if something like this doesn't exist in an established cache DB. Ideally this would be a [redis module](https://redis.io/docs/modules/) I think.
+I'm the only one using this. Would be very surprised if something like this doesn't exist in an established cache DB. Ideally this would be a [redis module](https://redis.io/docs/modules/) I think.
 
 ## usage
 
