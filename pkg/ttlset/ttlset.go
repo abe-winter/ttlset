@@ -174,11 +174,15 @@ func (ts *TtlSet) Len() int {
 func (ts *TtlSet) Cull(now time.Time) int {
   cutoff := now.Add(-ts.Ttl)
   candidates := make([][]string, 0)
-  iter := ts.Bytime.Iterator()
-  for ; iter.Next(); {
-    if iter.Key().(time.Time).After(cutoff) { break }
-    candidates = append(candidates, iter.Value().([]string))
-  }
+  func () {
+    ts.timeLock.Lock()
+    defer ts.timeLock.Unlock()
+    iter := ts.Bytime.Iterator()
+    for ; iter.Next(); {
+      if iter.Key().(time.Time).After(cutoff) { break }
+      candidates = append(candidates, iter.Value().([]string))
+    }
+  }()
   nculled := 0
   for _, slice := range candidates {
     for _, key := range slice {
