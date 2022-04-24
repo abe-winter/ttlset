@@ -5,8 +5,6 @@ import "sync"
 import "time"
 import "github.com/emirpasic/gods/trees/btree"
 
-var defaultTtl time.Duration = time.Minute // todo: from config
-var defaultOrder int = 3 // todo: from config
 var keyMutexes []sync.Mutex = make([]sync.Mutex, 50)
 
 // stores details about each key in the set
