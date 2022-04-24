@@ -1,9 +1,13 @@
 package main
 
+import "flag"
 import "time"
 import "sync"
 import "github.com/gin-gonic/gin"
 import "github.com/abe-winter/ttlset/m/v2/pkg/ttlset"
+
+var version = "(unset)" // ldflags
+var fVersion = flag.Bool("version", false, "print version and exit")
 
 // todo: move SETS and associated logic to pkg or internal
 var SETS map[string]*ttlset.TtlSet = make(map[string]*ttlset.TtlSet)
@@ -29,7 +33,14 @@ func getSet(key string, create_missing bool) *ttlset.TtlSet {
 }
 
 func main() {
-	r := gin.Default()
+  flag.Parse()
+
+  if *fVersion {
+    println(version)
+    return
+  }
+
+  r := gin.Default()
 
   // add item to set (or update its last-seen time)
   r.POST("/set/:key/item/:item", RequireRole(ReadWrite), func(c *gin.Context) {

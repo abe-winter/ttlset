@@ -9,7 +9,7 @@ I'm the only one using this. Would be very surprised if something like this does
 ## usage
 
 - `go run ./cmd/ttlsetd`
-- `go build ./cmd/ttlsetd`
+- `go build -ldflags "-X 'main.version=$(git rev-parse --short=10 HEAD)'" ./cmd/...`
 - `go test ./pkg/ttlset`
 
 (todo: publish a swagger spec + some examples)
