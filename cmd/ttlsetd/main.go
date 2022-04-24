@@ -32,7 +32,7 @@ func main() {
 	r := gin.Default()
 
   // add item to set (or update its last-seen time)
-  r.POST("/set/:key/item/:item", func(c *gin.Context) {
+  r.POST("/set/:key/item/:item", RequireRole(ReadWrite), func(c *gin.Context) {
     // todo: make sure these params get unescaped
     set := getSet(c.Param("key"), true)
     existed, prevTime := set.Add(c.Param("item"), time.Now())
@@ -40,7 +40,7 @@ func main() {
   })
 
   // set TTL on set
-  r.PATCH("/set/:key/ttl", func(c *gin.Context) {
+  r.PATCH("/set/:key/ttl", RequireRole(ReadWrite), func(c *gin.Context) {
     // huge design flaw here; when the set is culled, it loses its ttl setting. this needs thought
     query := struct {
       TtlSeconds uint
@@ -57,7 +57,7 @@ func main() {
   })
 
   // get size of set
-  r.GET("/set/:key/count", func(c *gin.Context) {
+  r.GET("/set/:key/count", RequireRole(ReadOnly), func(c *gin.Context) {
     set := getSet(c.Param("key"), false)
     count := 0
     if set != nil { count = set.Len() }
@@ -65,7 +65,7 @@ func main() {
   })
 
   // remove entire set
-  r.DELETE("/set/:key", func(c *gin.Context) {
+  r.DELETE("/set/:key", RequireRole(ReadWrite), func(c *gin.Context) {
     sets_lock.Lock()
     defer sets_lock.Unlock()
     delete(SETS, c.Param("key"))
@@ -73,7 +73,7 @@ func main() {
   })
 
   // remove just an item
-  r.DELETE("/set/:key/item/:item", func(c *gin.Context) {
+  r.DELETE("/set/:key/item/:item", RequireRole(ReadWrite), func(c *gin.Context) {
     set := getSet(c.Param("key"), false)
     removed, prevTime := false, time.Time{}
     if set != nil {

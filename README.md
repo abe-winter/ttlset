@@ -21,6 +21,10 @@ in the meantime check out ttlsetd/main.go, which defines the REST routes. it sho
 - `TTLSET_TREE_ORDER=3` sets default btree order (= how many children per node I think)
 - `TTLSET_ACCOUNTS="key1:rw key2:ro"` would create two accounts, with key1 + key2 as API keys, one with read-write permissions, the other read-only
 
+## security
+
+This has accounts + roles (see TTLSET_ACCOUNTS above) but doesn't set gin/contrib/secure and is generally assumed to be running inside a firewall (or better yet on my laptop). If you need this to be internet-facing file an issue.
+
 # boring internals
 
 ## TtlSet datastructure
