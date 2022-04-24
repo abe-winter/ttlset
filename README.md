@@ -1,16 +1,20 @@
 # ttlset
 
-mini REST server that exposes a set datatype that can TTL. Designed for hosting a persistent counter with expiration semantics.
+Is a stateful REST server that exposes a set datatype with per-key TTL. It's designed for hosting a persistent counter with per-item expiration semantics.
 
 ## status
 
-I'm the only one using this and who knows for how long. would be very surprised if something like this didn't already exist somewhere. Ideally this would be a [redis module](https://redis.io/docs/modules/).
+I'm the only one using this. would be very surprised if something like this doesn't exist in an established cache DB. Ideally this would be a [redis module](https://redis.io/docs/modules/) I think.
 
 ## usage
 
+- `go run ./cmd/ttlsetd`
+- `go build ./cmd/ttlsetd`
+- `go test ./pkg/ttlset`
+
 (todo: publish a swagger spec + some examples)
 
-in the meantime check out ttlsetd/main.go, which defines the REST routes. it should be fairly readable. File a ticket if you want to use this and have questions.
+in the meantime check out ttlsetd/main.go, which defines the REST routes, or curl.sh, which exercises the API. File a ticket if you want to use this and have questions.
 
 ## configs
 
