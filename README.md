@@ -14,11 +14,12 @@ in the meantime check out ttlsetd/main.go, which defines the REST routes. it sho
 
 ## configs
 
-(not all of these things are actually configurable yet)
+(to grep for these, grep for lowercase w/out `TTLSET_` prefix)
 
-- cull timer: how often the TTL sweep runs
-- default ttl
-- default btree order (= how many children per node I think)
+- `TTLSET_TICKER_INTERVAL=10s` would set the ttl cull sweep to run every 10 seconds
+- `TTLSET_DEFAULT_TTL=1m` would set the default item ttl of every set to 1 minute
+- `TTLSET_TREE_ORDER=3` sets default btree order (= how many children per node I think)
+- `TTLSET_ACCOUNTS="key1:rw key2:ro"` would create two accounts, with key1 + key2 as API keys, one with read-write permissions, the other read-only
 
 # boring internals
 

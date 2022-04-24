@@ -38,7 +38,7 @@ func New() *TtlSet {
     Ttl: defaultTtl,
     // note: TtlVal is a value rather than a pointer here because GC is faster per https://www.komu.engineer/blogs/go-gc-maps
     Byval: make(map[string]TtlVal),
-    Bytime: btree.NewWith(defaultOrder, timeComparator),
+    Bytime: btree.NewWith(treeOrder, timeComparator),
   }
 }
 
