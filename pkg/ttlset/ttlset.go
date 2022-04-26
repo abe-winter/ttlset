@@ -142,7 +142,7 @@ func (ts *TtlSet) Remove(key string, cullMode bool, cullCutoff time.Time) (bool,
   // note: could do read-then-write lock, but:
   // 1) there's no read-only case in this function
   // 2) not sure how much concurrency the read-only time opens up
-  canceler := cancelableLock(sync.Locker(&ts.valLock)) // todo: saner cast in 1.18
+  canceler := cancelableLock(&ts.valLock) // todo: saner cast in 1.18
   defer canceler.Unlock()
 
   if elem, ok := ts.Byval[key]; ok {
