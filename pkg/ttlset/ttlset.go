@@ -92,11 +92,11 @@ func (ts *TtlSet) addTreeKey(key string, now time.Time) {
 // safely RUnlock a RWMutex ugh why is this necessary
 type CancelableLocker struct {
   Locked bool
-  locker sync.RWMutex // todo 1.18 make this generic ugh
+  locker sync.Locker // todo 1.18 make this generic ugh
 }
 
 // factory for CancelableLocker
-func cancelableLock(locker sync.RWMutex) CancelableLocker {
+func cancelableLock(locker sync.Locker) CancelableLocker {
   locker.Lock()
   return CancelableLocker{Locked: true, locker: locker}
 }
@@ -108,19 +108,19 @@ func (cl *CancelableLocker) Unlock() {
   }
 }
 
-// add key to TtlSet. returns (existed, prevTime)
-func (ts *TtlSet) Add(key string, now time.Time) (bool, time.Time) {
+// add key to TtlSet. returns (existed, prevTime, newLength)
+func (ts *TtlSet) Add(key string, now time.Time) (bool, time.Time, int) {
   mutex := getMutex(key, keyMutexes)
   mutex.Lock()
   defer mutex.Unlock()
   oldTime := time.Time{}
 
-  elem, found := func () (TtlVal, bool) {
+  elem, found, new_len := func () (TtlVal, bool, int) {
     ts.valLock.Lock()
     defer ts.valLock.Unlock()
     elem, found := ts.Byval[key]
     ts.Byval[key] = TtlVal{t: now}
-    return elem, found
+    return elem, found, len(ts.Byval)
   }()
 
   ts.timeLock.Lock()
@@ -130,7 +130,7 @@ func (ts *TtlSet) Add(key string, now time.Time) (bool, time.Time) {
     ts.rmTreeKey(key, oldTime)
   }
   ts.addTreeKey(key, now)
-  return found, oldTime
+  return found, oldTime, new_len
 }
 
 // remove key. return (removed, prevTime)
@@ -142,7 +142,7 @@ func (ts *TtlSet) Remove(key string, cullMode bool, cullCutoff time.Time) (bool,
   // note: could do read-then-write lock, but:
   // 1) there's no read-only case in this function
   // 2) not sure how much concurrency the read-only time opens up
-  canceler := cancelableLock(ts.valLock)
+  canceler := cancelableLock(sync.Locker(&ts.valLock)) // todo: saner cast in 1.18
   defer canceler.Unlock()
 
   if elem, ok := ts.Byval[key]; ok {

@@ -46,8 +46,8 @@ func main() {
   r.POST("/set/:key/item/:item", RequireRole(ReadWrite), func(c *gin.Context) {
     // todo: make sure these params get unescaped
     set := getSet(c.Param("key"), true)
-    existed, prevTime := set.Add(c.Param("item"), time.Now())
-    c.JSON(200, gin.H{"key_existed": existed, "prevTime": prevTime})
+    existed, prevTime, newLen := set.Add(c.Param("item"), time.Now())
+    c.JSON(200, gin.H{"key_existed": existed, "prevTime": prevTime, "newLen": newLen})
   })
 
   // set TTL on set

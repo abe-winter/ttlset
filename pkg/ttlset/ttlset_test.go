@@ -43,7 +43,7 @@ func TestAddRemoveLen (t *testing.T) {
   if ts.Len() != 0 { t.Fatal("wrong len") }
   if existed, _ := ts.Remove("yo", false, time.Time{}); existed { t.Fatal("expected !existed") }
   if ts.Len() != 0 { t.Fatal("wrong len") }
-  if existed, _ := ts.Add("yo", now); existed { t.Fatal("expected !existed") }
+  if existed, _, _ := ts.Add("yo", now); existed { t.Fatal("expected !existed") }
   if ts.Len() != 1 { t.Fatal("wrong len") }
   if existed, _ := ts.Remove("yo", false, time.Time{}); !existed { t.Fatal("expected existed") }
   if ts.Len() != 0 { t.Fatal("wrong len") }
@@ -52,11 +52,11 @@ func TestAddRemoveLen (t *testing.T) {
 func TestAddExists (t *testing.T) {
   ts := New()
   base := time.Time{}
-  existed, prevtime := ts.Add("yo", base)
+  existed, prevtime, _ := ts.Add("yo", base)
   if existed { t.Fatal("expected !existed") }
 
   future := base.Add(time.Minute)
-  existed, prevtime = ts.Add("yo", future)
+  existed, prevtime, _ = ts.Add("yo", future)
   if !existed { t.Fatal("expected existed") }
   if !prevtime.Equal(base) { t.Fatal("wrong prevtime") }
 
